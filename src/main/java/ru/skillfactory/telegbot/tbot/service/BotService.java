@@ -18,7 +18,13 @@ import ru.skillfactory.telegbot.tbot.repository.ActiveChatRepository;
 
 
 import javax.annotation.PostConstruct;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+import static ru.skillfactory.telegbot.tbot.service.FinanceService.*;
 
 
 @Service //Данный класс является сервисом
@@ -28,6 +34,9 @@ public class BotService extends TelegramLongPollingBot{
 
     private final CentralRussianBankService centralBankRussianService;
     private final ActiveChatRepository activeChatRepository;
+    private final FinanceService financeService;
+    private Map<Long, List<String>> previousCommands = new ConcurrentHashMap<>();
+    private static final String CURRENT_RATES = "/currentrates";
 
     @Value("${bot.api.key}") //Сюда будет вставлено значение из application.properties, в котором будет указан api key, полученный от BotFather
     private String apiKey;
@@ -56,34 +65,34 @@ public class BotService extends TelegramLongPollingBot{
 
     @Override
     public void onUpdateReceived(Update update) {
-        Message message = update.getMessage(); //Этой строчкой мы получаем сообщение от пользователя
+        Message message = update.getMessage();
         try {
+            SendMessage response = new SendMessage();
             Long chatId = message.getChatId();
-            SendMessage response = new SendMessage(); //Данный класс представляет собой реализацию команды отправки сообщения, которую за нас выполнит ранее подключенная библиотека
-                                    //ID чата, в который необходимо отправить ответ
             response.setChatId(String.valueOf(chatId));
-
-            //Устанавливаем ID, полученный из предыдущего этап сюда, чтобы сообщить, в какой чат необходимо отправить сообщение
-            //Тут начинается самое интересное - мы сравниваем, что прислал пользователь, и какие команды мы можем обработать. Пока что у нас только одна команда
-            if ("/currentrates".equalsIgnoreCase(message.getText())) {
-//Получаем все курсы валют на текущий момент и проходимся по ним в цикле
+            if (CURRENT_RATES.equalsIgnoreCase(message.getText())) {
                 for (ValuteCursOnDate valuteCursOnDate : centralBankRussianService.getCurrenciesFromCbr()) {
-//В данной строчке мы собираем наше текстовое сообщение
-//StringUtils.defaultBlank – это метод из библиотеки Apache Commons, который нам нужен для того, чтобы на первой итерации нашего цикла была вставлена пустая строка вместо null, а на следующих итерациях не перетерся текст, полученный из предыдущих итерации. Подключение библиотеки см. ниже
                     response.setText(StringUtils.defaultIfBlank(response.getText(), "") + valuteCursOnDate.getName() + " - " + valuteCursOnDate.getCourse() + "\n");
                 }
-                execute(response);
+            } else if (ADD_INCOME.equalsIgnoreCase(message.getText())) {
+                response.setText("Отправьте мне сумму полученного дохода");
+            } else if (ADD_SPEND.equalsIgnoreCase(message.getText())) {
+                response.setText("Отправьте мне сумму расходов");
+            } else {
+                response.setText(financeService.addFinanceOperation(getPreviousCommand(message.getChatId()), message.getText(), message.getChatId()));
             }
 
-            if (activeChatRepository.findActiveChatByChatId(chatId).isEmpty()){
+            putPreviousCommand(message.getChatId(), message.getText());
+            execute(response);
+            if (activeChatRepository.findActiveChatByChatId(chatId).isEmpty()) {
                 ActiveChat activeChat = new ActiveChat();
                 activeChat.setChatId(chatId);
                 activeChatRepository.save(activeChat);
             }
-            //Ниже очень примитивная обработка исключений, чуть позже мы это поправим
         } catch (TelegramApiException e) {
             e.printStackTrace();
         } catch (Exception e) {
+            log.error("Возникла проблема при получении данных от сервисов ЦБ РФ", e);
             e.printStackTrace();
         }
     }
@@ -98,5 +107,22 @@ public class BotService extends TelegramLongPollingBot{
                 e.printStackTrace();
             }
         }
+    }
+    private void putPreviousCommand(Long chatId, String command) {
+        if (previousCommands.get(chatId) == null) {
+            List<String> commands = new ArrayList<>();
+            commands.add(command);
+            previousCommands.put(chatId, commands);
+        } else {
+            previousCommands.get(chatId).add(command);
+        }
+    }
+
+    private String getPreviousCommand(Long chatId) {
+        if (previousCommands.size()!=0) {
+            return previousCommands.get(chatId)
+                    .get(previousCommands.get(chatId).size() - 1);
+        }
+        return "";
     }
 }

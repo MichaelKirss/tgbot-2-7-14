@@ -28,6 +28,8 @@ public class CentralRussianBankService extends WebServiceTemplate {
 
         if (response == null) {
             throw new IllegalStateException("Could not get response from CBR Service");
+
+
         }
 
         final List<ValuteCursOnDate> courses = response.getGetCursOnDateXmlResult().getValuteData();
