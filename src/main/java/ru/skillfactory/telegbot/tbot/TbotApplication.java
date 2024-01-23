@@ -6,7 +6,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 @SpringBootApplication
 public class TbotApplication {
-
 	public static void main(String[] args) {
 		SpringApplication.run(TbotApplication.class, args);
 	}

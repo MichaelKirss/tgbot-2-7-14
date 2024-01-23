@@ -1,0 +1,1 @@
+[![Build Status](https://app.travis-ci.com/MichaelKirss/tgbot-2-7-14.svg?token=hynYigTKZQyRviuaHRgj&branch=main)](https://app.travis-ci.com/MichaelKirss/tgbot-2-7-14)

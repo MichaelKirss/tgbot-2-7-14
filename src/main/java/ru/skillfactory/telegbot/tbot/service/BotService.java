@@ -27,42 +27,32 @@ import java.util.concurrent.ConcurrentHashMap;
 import static ru.skillfactory.telegbot.tbot.service.FinanceService.*;
 
 
-@Service //Данный класс является сервисом
+@Service
 @Slf4j
 @RequiredArgsConstructor
 public class BotService extends TelegramLongPollingBot{
-
     private final CentralRussianBankService centralBankRussianService;
     private final ActiveChatRepository activeChatRepository;
     private final FinanceService financeService;
     private Map<Long, List<String>> previousCommands = new ConcurrentHashMap<>();
     private static final String CURRENT_RATES = "/currentrates";
 
-    @Value("${bot.api.key}") //Сюда будет вставлено значение из application.properties, в котором будет указан api key, полученный от BotFather
+    @Value("${bot.api.key}")
     private String apiKey;
-
-    @Value("${bot.name}") //Как будут звать нашего бота
+    @Value("${bot.name}")
     private String name;
-    //Это основной метод, который связан с обработкой сообщений
-
-
-    //Данный метод будет вызван сразу после того, как данный бин будет создан - это обеспечено аннотацией Spring PostConstruct
     @PostConstruct
     public void start() {
         log.info("username: {}, token: {}", name, apiKey);
     }
-
-    //Данный метод просто возвращает данные о имени бота и его необходимо переопределять
     @Override
     public String getBotUsername() {
         return name;
     }
-    //Данный метод возвращает API ключ для взаимодействия с Telegram
     @Override
     public String getBotToken() {
         return apiKey;
     }
-
     @Override
     public void onUpdateReceived(Update update) {
         Message message = update.getMessage();
@@ -81,18 +71,19 @@ public class BotService extends TelegramLongPollingBot{
             } else {
                 response.setText(financeService.addFinanceOperation(getPreviousCommand(message.getChatId()), message.getText(), message.getChatId()));
             }
-
             putPreviousCommand(message.getChatId(), message.getText());
-            execute(response);
+            if (response.getText()!="") {
+                execute(response);
+            }
             if (activeChatRepository.findActiveChatByChatId(chatId).isEmpty()) {
                 ActiveChat activeChat = new ActiveChat();
                 activeChat.setChatId(chatId);
                 activeChatRepository.save(activeChat);
             }
         } catch (TelegramApiException e) {
+            log.error("Возникла проблема при получении данных от сервисов ЦБ РФ", e);
             e.printStackTrace();
         } catch (Exception e) {
-            log.error("Возникла проблема при получении данных от сервисов ЦБ РФ", e);
             e.printStackTrace();
         }
     }
@@ -117,7 +108,6 @@ public class BotService extends TelegramLongPollingBot{
             previousCommands.get(chatId).add(command);
         }
     }
-
     private String getPreviousCommand(Long chatId) {
         if (previousCommands.size()!=0) {
             return previousCommands.get(chatId)

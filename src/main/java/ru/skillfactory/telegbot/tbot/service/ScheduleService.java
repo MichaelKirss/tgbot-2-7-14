@@ -20,7 +20,6 @@ public class ScheduleService {
     private final BotService botService;
     private final CentralRussianBankService centralRussianBankService;
     private final List<ValuteCursOnDate> previousRates = new ArrayList<>();
-
     @Scheduled(cron = "0 0 0/3 ? * *")
     public void notifyAboutChangesInCurrencyRate() {
         try {

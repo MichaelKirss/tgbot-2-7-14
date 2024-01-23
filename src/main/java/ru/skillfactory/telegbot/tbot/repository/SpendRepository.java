@@ -5,5 +5,4 @@ import org.springframework.stereotype.Repository;
 import ru.skillfactory.telegbot.tbot.entity.Spend;
 @Repository
 public interface SpendRepository extends JpaRepository<Spend, Long> {
-
 }
